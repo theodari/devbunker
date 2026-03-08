@@ -7,12 +7,12 @@ import { useDialog } from "@tui/ui/dialog"
 import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 import { useKeybind } from "../context/keybind"
 import * as fuzzysort from "fuzzysort"
+import { ModelFilter } from "../../../../ram/model-filter"
 
 export function useConnected() {
+  // DevBunker: connected means any local provider is available
   const sync = useSync()
-  return createMemo(() =>
-    sync.data.provider.some((x) => x.id !== "opencode" || Object.values(x.models).some((y) => y.cost?.input !== 0)),
-  )
+  return createMemo(() => sync.data.provider.length > 0)
 }
 
 export function DialogModel(props: { providerID?: string }) {
@@ -27,6 +27,25 @@ export function DialogModel(props: { providerID?: string }) {
 
   const showExtra = createMemo(() => connected() && !props.providerID)
 
+  // DevBunker: RAM-based model filtering cache
+  const ramCache = createMemo(() => {
+    const cache = new Map<string, ReturnType<typeof ModelFilter.check>>()
+    for (const provider of sync.data.provider) {
+      for (const modelID of Object.keys(provider.models)) {
+        if (!cache.has(modelID)) {
+          cache.set(modelID, ModelFilter.check(modelID))
+        }
+      }
+    }
+    return cache
+  })
+
+  function ramFooter(modelID: string): string | undefined {
+    const info = ramCache().get(modelID)
+    if (!info || info.canRun) return undefined
+    return `~${info.requiredGB}GB RAM required`
+  }
+
   const options = createMemo(() => {
     const needle = query().trim()
     const showSections = showExtra() && needle.length === 0
@@ -40,6 +59,7 @@ export function DialogModel(props: { providerID?: string }) {
         if (!provider) return []
         const model = provider.models[item.modelID]
         if (!model) return []
+        const ramInfo = ramCache().get(model.id)
         return [
           {
             key: item,
@@ -47,8 +67,8 @@ export function DialogModel(props: { providerID?: string }) {
             title: model.name ?? item.modelID,
             description: provider.name,
             category,
-            disabled: provider.id === "opencode" && model.id.includes("-nano"),
-            footer: model.cost?.input === 0 && provider.id === "opencode" ? "Free" : undefined,
+            disabled: ramInfo ? !ramInfo.canRun : false,
+            footer: ramFooter(model.id),
             onSelect: () => {
               dialog.clear()
               local.model.set({ providerID: provider.id, modelID: model.id }, { recent: true })
@@ -78,20 +98,23 @@ export function DialogModel(props: { providerID?: string }) {
           entries(),
           filter(([_, info]) => info.status !== "deprecated"),
           filter(([_, info]) => (props.providerID ? info.providerID === props.providerID : true)),
-          map(([model, info]) => ({
-            value: { providerID: provider.id, modelID: model },
-            title: info.name ?? model,
-            description: favorites.some((item) => item.providerID === provider.id && item.modelID === model)
-              ? "(Favorite)"
-              : undefined,
-            category: connected() ? provider.name : undefined,
-            disabled: provider.id === "opencode" && model.includes("-nano"),
-            footer: info.cost?.input === 0 && provider.id === "opencode" ? "Free" : undefined,
-            onSelect() {
-              dialog.clear()
-              local.model.set({ providerID: provider.id, modelID: model }, { recent: true })
-            },
-          })),
+          map(([model, info]) => {
+            const ramInfo = ramCache().get(model)
+            return {
+              value: { providerID: provider.id, modelID: model },
+              title: info.name ?? model,
+              description: favorites.some((item) => item.providerID === provider.id && item.modelID === model)
+                ? "(Favorite)"
+                : undefined,
+              category: connected() ? provider.name : undefined,
+              disabled: ramInfo ? !ramInfo.canRun : false,
+              footer: ramFooter(model),
+              onSelect() {
+                dialog.clear()
+                local.model.set({ providerID: provider.id, modelID: model }, { recent: true })
+              },
+            }
+          }),
           filter((x) => {
             if (!showSections) return true
             if (favorites.some((item) => item.providerID === x.value.providerID && item.modelID === x.value.modelID))

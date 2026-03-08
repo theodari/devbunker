@@ -8,6 +8,8 @@ import { ProviderAuth } from "../../provider/auth"
 import { mapValues } from "remeda"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { RAM } from "../../ram/detector"
+import { ModelFilter } from "../../ram/model-filter"
 
 export const ProviderRoutes = lazy(() =>
   new Hono()
@@ -160,6 +162,58 @@ export const ProviderRoutes = lazy(() =>
           code,
         })
         return c.json(true)
+      },
+    )
+    .get(
+      "/ram",
+      describeRoute({
+        summary: "Get system RAM info",
+        description: "Get system memory info and model compatibility for DevBunker.",
+        operationId: "provider.ram",
+        responses: {
+          200: {
+            description: "System memory and model compatibility",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    system: z.object({
+                      totalGB: z.number(),
+                      availableGB: z.number(),
+                      gpuVramGB: z.number().optional(),
+                    }),
+                    models: z.array(
+                      z.object({
+                        modelID: z.string(),
+                        canRun: z.boolean(),
+                        requiredGB: z.number(),
+                        availableGB: z.number(),
+                        reason: z.string().optional(),
+                        params: z.string().optional(),
+                        quantization: z.string().optional(),
+                      }),
+                    ),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const system = RAM.refresh()
+        const connected = await Provider.list()
+
+        const allModelIDs: string[] = []
+        for (const provider of Object.values(connected)) {
+          for (const modelID of Object.keys(provider.models)) {
+            allModelIDs.push(modelID)
+          }
+        }
+
+        const models = ModelFilter.filterAll(allModelIDs)
+
+        return c.json({ system, models })
       },
     ),
 )
