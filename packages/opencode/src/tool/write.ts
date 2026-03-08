@@ -12,6 +12,7 @@ import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
 import { trimDiff } from "./edit"
 import { assertExternalDirectory } from "./external-directory"
+import { FilesystemGuard } from "../guard/filesystem-scope"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
@@ -24,6 +25,10 @@ export const WriteTool = Tool.define("write", {
   }),
   async execute(params, ctx) {
     const filepath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
+
+    // DevBunker: Filesystem Guard
+    FilesystemGuard.assert(filepath)
+
     await assertExternalDirectory(ctx, filepath)
 
     const exists = await Filesystem.exists(filepath)

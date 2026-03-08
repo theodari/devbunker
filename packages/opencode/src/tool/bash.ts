@@ -17,6 +17,9 @@ import { Shell } from "@/shell/shell"
 import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
 import { Plugin } from "@/plugin"
+import { ShellGuard } from "@/guard/shell-guard"
+import { GitGuard } from "@/guard/git-guard"
+import { SecretScan } from "@/guard/secret-scan"
 
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
@@ -76,6 +79,36 @@ export const BashTool = Tool.define("bash", async () => {
         ),
     }),
     async execute(params, ctx) {
+      // DevBunker: Shell Guard — check command before execution
+      const guardResult = ShellGuard.check(params.command)
+      if (guardResult.decision === "block") {
+        throw new Error(`[DevBunker Guard] Command blocked: ${guardResult.reason}`)
+      }
+
+      // DevBunker: Git Guard — check git commands against remote whitelist
+      if (params.command.trim().startsWith("git ")) {
+        await GitGuard.assert(params.command)
+
+        // Secret scan on git push: scan the diff before pushing
+        if (/git\s+push\b/.test(params.command)) {
+          try {
+            const { execSync } = await import("child_process")
+            const diff = execSync("git diff HEAD~1 HEAD", {
+              cwd: params.workdir || Instance.directory,
+              encoding: "utf-8",
+              timeout: 10000,
+            })
+            const findings = SecretScan.scanDiff(diff)
+            if (findings.length > 0) {
+              throw new Error(SecretScan.formatFindings(findings))
+            }
+          } catch (e: any) {
+            if (e.message?.includes("DevBunker")) throw e
+            // If diff fails (no commits yet, etc.), skip scan
+          }
+        }
+      }
+
       const cwd = params.workdir || Instance.directory
       if (params.timeout !== undefined && params.timeout < 0) {
         throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)

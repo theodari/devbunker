@@ -11,6 +11,7 @@ import { Instance } from "../project/instance"
 import { assertExternalDirectory } from "./external-directory"
 import { InstructionPrompt } from "../session/instruction"
 import { Filesystem } from "../util/filesystem"
+import { FilesystemGuard } from "../guard/filesystem-scope"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
@@ -33,6 +34,10 @@ export const ReadTool = Tool.define("read", {
     if (!path.isAbsolute(filepath)) {
       filepath = path.resolve(Instance.directory, filepath)
     }
+
+    // DevBunker: Filesystem Guard
+    FilesystemGuard.assert(filepath)
+
     const title = path.relative(Instance.worktree, filepath)
 
     const stat = Filesystem.stat(filepath)
