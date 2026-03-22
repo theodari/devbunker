@@ -6,6 +6,7 @@ import { GlobTool } from "./glob"
 import { GrepTool } from "./grep"
 import { BatchTool } from "./batch"
 import { ReadTool } from "./read"
+import { ListTool } from "./ls"
 import { TaskTool } from "./task"
 import { TodoWriteTool, TodoReadTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
@@ -28,6 +29,15 @@ import { LspTool } from "./lsp"
 import { Truncate } from "./truncation"
 
 import { ApplyPatchTool } from "./apply_patch"
+
+// DevBunker: Additional tools
+import { D2Tool } from "./d2"
+import { MermaidTool } from "./mermaid"
+import { PandocTool } from "./pandoc"
+import { SvgGenerateTool } from "./svg-generate"
+import { SvgConvertTool } from "./svg-convert"
+import { GitAdvancedTool } from "./git-advanced"
+import { ChangelogTool } from "./changelog"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "url"
 
@@ -104,22 +114,32 @@ export namespace ToolRegistry {
       InvalidTool,
       ...(question ? [QuestionTool] : []),
       BashTool,
+      ListTool,
       ReadTool,
       GlobTool,
       GrepTool,
       EditTool,
       WriteTool,
       TaskTool,
-      WebFetchTool,
-      TodoWriteTool,
-      // TodoReadTool,
+      SkillTool,
+      // DevBunker: WebFetch/TodoWrite/ApplyPatch disabled by default (noise for local models)
+      // Re-enable via config tools: { webfetch: true, todowrite: true }
+      ...(config.tools?.webfetch === true ? [WebFetchTool] : []),
+      ...(config.tools?.todowrite === true ? [TodoWriteTool] : []),
       WebSearchTool,
       CodeSearchTool,
-      SkillTool,
       ApplyPatchTool,
       ...(Flag.OPENCODE_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
       ...(Flag.OPENCODE_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [PlanExitTool] : []),
+      // DevBunker: Extra tools — d2/mermaid/pandoc/svg opt-in via devbunker.json "tools"
+      GitAdvancedTool,
+      ChangelogTool,
+      ...(config.tools?.d2 === true ? [D2Tool] : []),
+      ...(config.tools?.mermaid === true ? [MermaidTool] : []),
+      ...(config.tools?.pandoc === true ? [PandocTool] : []),
+      ...(config.tools?.svg_generate === true ? [SvgGenerateTool] : []),
+      ...(config.tools?.svg_convert === true ? [SvgConvertTool] : []),
       ...custom,
     ]
   }
@@ -136,9 +156,20 @@ export namespace ToolRegistry {
     agent?: Agent.Info,
   ) {
     const tools = await all()
+
+    // Local models (non-cloud) get a minimal tool set to avoid overwhelming them
+    const LOCAL_TOOLS = new Set(["bash", "list", "read", "edit", "write", "glob", "invalid"])
+    const isLocalModel =
+      model.providerID.includes("llama") ||
+      model.providerID.includes("ollama") ||
+      model.providerID.includes("local")
+
     const result = await Promise.all(
       tools
         .filter((t) => {
+          // Local models: only core tools
+          if (isLocalModel && !LOCAL_TOOLS.has(t.id)) return false
+
           // Enable websearch/codesearch for zen users OR via enable flag
           if (t.id === "codesearch" || t.id === "websearch") {
             return model.providerID === "opencode" || Flag.OPENCODE_ENABLE_EXA

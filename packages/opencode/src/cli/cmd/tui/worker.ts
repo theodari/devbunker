@@ -11,6 +11,7 @@ import { createOpencodeClient, type Event } from "@opencode-ai/sdk/v2"
 import type { BunWebSocketData } from "hono/bun"
 import { Flag } from "@/flag/flag"
 import { setTimeout as sleep } from "node:timers/promises"
+import { LlamaServer } from "@/llama/server"
 
 await Log.init({
   print: process.argv.includes("--print-logs"),
@@ -58,7 +59,7 @@ const startEventStream = (directory: string) => {
   }) as typeof globalThis.fetch
 
   const sdk = createOpencodeClient({
-    baseUrl: "http://opencode.internal",
+    baseUrl: "http://devbunker.internal",
     directory,
     fetch: fetchFn,
     signal,
@@ -94,6 +95,9 @@ const startEventStream = (directory: string) => {
     })
   })
 }
+
+// Auto-launch llama-server if configured for local inference
+await LlamaServer.start()
 
 startEventStream(process.cwd())
 
@@ -138,6 +142,7 @@ export const rpc = {
   async shutdown() {
     Log.Default.info("worker shutting down")
     if (eventStream.abort) eventStream.abort.abort()
+    await LlamaServer.stop()
     await Instance.disposeAll()
     if (server) server.stop(true)
   },

@@ -1,0 +1,60 @@
+You are the BMAD Architect. Design the technical architecture for a feature.
+
+## Target:
+$ARGUMENTS
+
+If no specific target is given, scan `docs/stories/` for stories without architecture docs.
+
+## Instructions:
+1. Read all relevant stories in `docs/stories/`
+2. Read existing architecture docs in `docs/architecture/` for consistency
+3. Design a modular, testable architecture
+4. Document technology choices with justifications
+5. Propose file/module structure
+
+## Output file: `docs/architecture/<feature-slug>.md`
+
+Use this template:
+```markdown
+# Architecture: <Feature Name>
+
+## Overview
+<Brief description of the architecture>
+
+## Components
+### <Component Name>
+- **File**: `src/<path>`
+- **Responsibility**: <what it does>
+- **Dependencies**: <what it needs>
+- **Interface**:
+  ```typescript
+  interface I<Component> {
+    // methods
+  }
+  ```
+
+## Data Flow
+```mermaid
+graph LR
+  A[Input] --> B[Component] --> C[Output]
+```
+
+## Technology Choices
+| Choice | Justification |
+|--------|--------------|
+| ...    | ...          |
+
+## File Structure
+```
+src/
+├── <feature>/
+│   ├── <component>.ts
+│   └── ...
+```
+
+## Testability
+- <How each component can be tested in isolation>
+```
+
+Create the `docs/architecture/` directory if it doesn't exist.
+Ensure every component has a clear interface for dependency injection.

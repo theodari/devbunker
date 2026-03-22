@@ -2,6 +2,7 @@ import path from "path"
 import fs from "fs"
 import { Log } from "../util/log"
 import { Instance } from "../project/instance"
+import { GuardLog } from "./guard-log"
 
 export namespace FilesystemGuard {
   const log = Log.create({ service: "guard:fs" })
@@ -53,6 +54,7 @@ export namespace FilesystemGuard {
     if (!Instance.containsPath(resolved)) {
       const reason = `Path outside workspace: ${resolved}`
       log.warn("BLOCK", { filepath: resolved, reason })
+      GuardLog.write({ guard: "filesystem", decision: "block", target: resolved, reason })
       return { allowed: false, warn: false, reason }
     }
 
@@ -62,6 +64,7 @@ export namespace FilesystemGuard {
       if (!Instance.containsPath(real)) {
         const reason = `Symlink escapes workspace: ${resolved} -> ${real}`
         log.warn("BLOCK", { filepath: resolved, real, reason })
+        GuardLog.write({ guard: "filesystem", decision: "block", target: resolved, reason })
         return { allowed: false, warn: false, reason }
       }
     } catch {
@@ -73,6 +76,7 @@ export namespace FilesystemGuard {
       if (resolved.includes(`/${dir}/`) || resolved.includes(`\\${dir}\\`)) {
         const reason = `Access to ${dir}/ is blocked`
         log.warn("BLOCK", { filepath: resolved, reason })
+        GuardLog.write({ guard: "filesystem", decision: "block", target: resolved, reason })
         return { allowed: false, warn: false, reason }
       }
     }
@@ -82,6 +86,7 @@ export namespace FilesystemGuard {
       if (pattern.test(resolved)) {
         const reason = `File is blocked: matches ${pattern.source}`
         log.warn("BLOCK", { filepath: resolved, reason })
+        GuardLog.write({ guard: "filesystem", decision: "block", target: resolved, reason })
         return { allowed: false, warn: false, reason }
       }
     }
@@ -90,6 +95,7 @@ export namespace FilesystemGuard {
     for (const pattern of WARN_PATTERNS) {
       if (pattern.test(resolved)) {
         log.info("WARN", { filepath: resolved, pattern: pattern.source })
+        GuardLog.write({ guard: "filesystem", decision: "warn", target: resolved, reason: `Sensitive file detected: ${path.basename(resolved)}` })
         return {
           allowed: true,
           warn: true,

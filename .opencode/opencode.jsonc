@@ -1,10 +1,5 @@
 {
-  "$schema": "https://opencode.ai/config.json",
-  "provider": {
-    "opencode": {
-      "options": {},
-    },
-  },
+  "$schema": "https://github.com/theodari/DevBunker/config.json",
   "mcp": {},
   "tools": {
     "github-triage": false,

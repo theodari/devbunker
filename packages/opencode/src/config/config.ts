@@ -46,11 +46,11 @@ export namespace Config {
   function systemManagedConfigDir(): string {
     switch (process.platform) {
       case "darwin":
-        return "/Library/Application Support/opencode"
+        return "/Library/Application Support/devbunker"
       case "win32":
-        return path.join(process.env.ProgramData || "C:\\ProgramData", "opencode")
+        return path.join(process.env.ProgramData || "C:\\ProgramData", "devbunker")
       default:
-        return "/etc/opencode"
+        return "/etc/devbunker"
     }
   }
 
@@ -75,12 +75,12 @@ export namespace Config {
   export const state = Instance.state(async () => {
     const auth = await Auth.all()
 
-    // Config loading order (low -> high precedence): https://opencode.ai/docs/config#precedence-order
+    // Config loading order (low -> high precedence):
     // 1) Remote .well-known/opencode (org defaults)
-    // 2) Global config (~/.config/opencode/opencode.json{,c})
+    // 2) Global config (~/.config/devbunker/devbunker.json{,c} or opencode.json{,c})
     // 3) Custom config (OPENCODE_CONFIG)
-    // 4) Project config (opencode.json{,c})
-    // 5) .opencode directories (.opencode/agents/, .opencode/commands/, .opencode/plugins/, .opencode/opencode.json{,c})
+    // 4) Project config (devbunker.json{,c} or opencode.json{,c})
+    // 5) .opencode directories (.opencode/agents/, .opencode/commands/, .opencode/plugins/, .opencode/devbunker.json{,c} or opencode.json{,c})
     // 6) Inline config (OPENCODE_CONFIG_CONTENT)
     // Managed config directory is enterprise-only and always overrides everything above.
     let result: Info = {}
@@ -96,7 +96,7 @@ export namespace Config {
         const wellknown = (await response.json()) as any
         const remoteConfig = wellknown.config ?? {}
         // Add $schema to prevent load() from trying to write back to a non-existent file
-        if (!remoteConfig.$schema) remoteConfig.$schema = "https://opencode.ai/config.json"
+        if (!remoteConfig.$schema) remoteConfig.$schema = "https://github.com/theodari/DevBunker/config.json"
         result = mergeConfigConcatArrays(
           result,
           await load(JSON.stringify(remoteConfig), {
@@ -123,7 +123,10 @@ export namespace Config {
 
     // Project config overrides global and remote config.
     if (!Flag.OPENCODE_DISABLE_PROJECT_CONFIG) {
-      for (const file of await ConfigPaths.projectFiles("opencode", Instance.directory, Instance.worktree)) {
+      for (const file of [
+        ...await ConfigPaths.projectFiles("devbunker", Instance.directory, Instance.worktree),
+        ...await ConfigPaths.projectFiles("opencode", Instance.directory, Instance.worktree),
+      ]) {
         result = mergeConfigConcatArrays(result, await loadFile(file))
       }
     }
@@ -143,7 +146,7 @@ export namespace Config {
 
     for (const dir of unique(directories)) {
       if (dir.endsWith(".opencode") || dir === Flag.OPENCODE_CONFIG_DIR) {
-        for (const file of ["opencode.jsonc", "opencode.json"]) {
+        for (const file of ["devbunker.jsonc", "devbunker.json", "opencode.jsonc", "opencode.json"]) {
           log.debug(`loading config from ${path.join(dir, file)}`)
           result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
           // to satisfy the type checker
@@ -183,7 +186,7 @@ export namespace Config {
     // which would fail on system directories requiring elevated permissions
     // This way it only loads config file and not skills/plugins/commands
     if (existsSync(managedDir)) {
-      for (const file of ["opencode.jsonc", "opencode.json"]) {
+      for (const file of ["devbunker.jsonc", "devbunker.json", "opencode.jsonc", "opencode.json"]) {
         result = mergeConfigConcatArrays(result, await loadFile(path.join(managedDir, file)))
       }
     }
@@ -1176,12 +1179,22 @@ export namespace Config {
 
   export type Info = z.output<typeof Info>
 
+  // Legacy config dir (~/.config/opencode) for migration from OpenCode
+  const legacyConfigDir = path.join(path.dirname(Global.Path.config), "opencode")
+
   export const global = lazy(async () => {
     let result: Info = pipe(
       {},
+      // Legacy opencode config dir fallback
+      mergeDeep(await loadFile(path.join(legacyConfigDir, "config.json"))),
+      mergeDeep(await loadFile(path.join(legacyConfigDir, "opencode.json"))),
+      mergeDeep(await loadFile(path.join(legacyConfigDir, "opencode.jsonc"))),
+      // Current devbunker config dir (takes precedence)
       mergeDeep(await loadFile(path.join(Global.Path.config, "config.json"))),
       mergeDeep(await loadFile(path.join(Global.Path.config, "opencode.json"))),
       mergeDeep(await loadFile(path.join(Global.Path.config, "opencode.jsonc"))),
+      mergeDeep(await loadFile(path.join(Global.Path.config, "devbunker.json"))),
+      mergeDeep(await loadFile(path.join(Global.Path.config, "devbunker.jsonc"))),
     )
 
     const legacy = path.join(Global.Path.config, "config")
@@ -1194,7 +1207,7 @@ export namespace Config {
         .then(async (mod) => {
           const { provider, model, ...rest } = mod.default
           if (provider && model) result.model = `${provider}/${model}`
-          result["$schema"] = "https://opencode.ai/config.json"
+          result["$schema"] = "https://github.com/theodari/DevBunker/config.json"
           result = mergeDeep(result, rest)
           await Filesystem.writeJson(path.join(Global.Path.config, "config.json"), result)
           await fs.unlink(legacy)
@@ -1238,8 +1251,8 @@ export namespace Config {
     const parsed = Info.safeParse(normalized)
     if (parsed.success) {
       if (!parsed.data.$schema && isFile) {
-        parsed.data.$schema = "https://opencode.ai/config.json"
-        const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://opencode.ai/config.json",')
+        parsed.data.$schema = "https://github.com/theodari/DevBunker/config.json"
+        const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://github.com/theodari/DevBunker/config.json",')
         await Filesystem.write(options.path, updated).catch(() => {})
       }
       const data = parsed.data
@@ -1295,7 +1308,7 @@ export namespace Config {
   }
 
   function globalConfigFile() {
-    const candidates = ["opencode.jsonc", "opencode.json", "config.json"].map((file) =>
+    const candidates = ["devbunker.jsonc", "devbunker.json", "opencode.jsonc", "opencode.json", "config.json"].map((file) =>
       path.join(Global.Path.config, file),
     )
     for (const file of candidates) {

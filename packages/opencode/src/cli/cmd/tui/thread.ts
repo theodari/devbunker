@@ -61,12 +61,12 @@ async function input(value?: string) {
 
 export const TuiThreadCommand = cmd({
   command: "$0 [project]",
-  describe: "start opencode tui",
+  describe: "start devbunker tui",
   builder: (yargs) =>
     withNetworkOptions(yargs)
       .positional("project", {
         type: "string",
-        describe: "path to start opencode in",
+        describe: "path to start devbunker in",
       })
       .option("model", {
         type: "string",
@@ -111,10 +111,12 @@ export const TuiThreadCommand = cmd({
       }
 
       // Resolve relative paths against PWD to preserve behavior when using --cwd flag
-      const root = Filesystem.resolve(process.env.PWD ?? process.cwd())
+      const root = Filesystem.resolve(process.env.INIT_CWD ?? process.env.PWD ?? process.cwd())
       const cwd = args.project
         ? Filesystem.resolve(path.isAbsolute(args.project) ? args.project : path.join(root, args.project))
         : root
+
+
       const file = await target()
       try {
         process.chdir(cwd)
@@ -184,7 +186,7 @@ export const TuiThreadCommand = cmd({
             events: undefined,
           }
         : {
-            url: "http://opencode.internal",
+            url: "http://devbunker.internal",
             fetch: createWorkerFetch(client),
             events: createEventSource(client),
           }

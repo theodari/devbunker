@@ -5,6 +5,16 @@ import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
+
+// DevBunker: BMAD command templates
+import PROMPT_BMAD_CREATE_STORY from "./template/bmad-create-story.txt"
+import PROMPT_BMAD_ARCHITECT from "./template/bmad-architect.txt"
+import PROMPT_BMAD_GENERATE_TESTS from "./template/bmad-generate-tests.txt"
+import PROMPT_BMAD_IMPLEMENT from "./template/bmad-implement.txt"
+import PROMPT_BMAD_QA_GATE from "./template/bmad-qa-gate.txt"
+import PROMPT_BMAD_VALIDATE_STORY from "./template/bmad-validate-story.txt"
+import PROMPT_BMAD_TRACE from "./template/bmad-trace.txt"
+import PROMPT_BMAD_INIT from "./template/bmad-init.txt"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
 
@@ -78,6 +88,94 @@ export namespace Command {
         },
         subtask: true,
         hints: hints(PROMPT_REVIEW),
+      },
+
+      // ── DevBunker: BMAD Commands ──────────────────────────────────
+
+      "create-story": {
+        name: "create-story",
+        description: "BMAD: Create a user story from a requirement",
+        agent: "bmad-analyst",
+        source: "command",
+        get template() {
+          return PROMPT_BMAD_CREATE_STORY
+        },
+        hints: hints(PROMPT_BMAD_CREATE_STORY),
+      },
+
+      architect: {
+        name: "architect",
+        description: "BMAD: Design technical architecture for a story",
+        agent: "bmad-architect",
+        source: "command",
+        get template() {
+          return PROMPT_BMAD_ARCHITECT
+        },
+        hints: hints(PROMPT_BMAD_ARCHITECT),
+      },
+
+      "generate-tests": {
+        name: "generate-tests",
+        description: "BMAD: Generate tests from specs (TDD-first, no code access)",
+        agent: "bmad-qa",
+        source: "command",
+        get template() {
+          return PROMPT_BMAD_GENERATE_TESTS
+        },
+        hints: hints(PROMPT_BMAD_GENERATE_TESTS),
+      },
+
+      implement: {
+        name: "implement",
+        description: "BMAD: Implement code to make failing tests pass",
+        agent: "bmad-dev",
+        source: "command",
+        get template() {
+          return PROMPT_BMAD_IMPLEMENT
+        },
+        hints: hints(PROMPT_BMAD_IMPLEMENT),
+      },
+
+      "qa-gate": {
+        name: "qa-gate",
+        description: "BMAD: Check test status (RED/GREEN/MIXED phase)",
+        agent: "bmad-qa",
+        source: "command",
+        get template() {
+          return PROMPT_BMAD_QA_GATE
+        },
+        hints: hints(PROMPT_BMAD_QA_GATE),
+      },
+
+      "validate-story": {
+        name: "validate-story",
+        description: "BMAD: Validate a story against acceptance criteria",
+        agent: "bmad-po",
+        source: "command",
+        get template() {
+          return PROMPT_BMAD_VALIDATE_STORY
+        },
+        hints: hints(PROMPT_BMAD_VALIDATE_STORY),
+      },
+
+      "trace-requirements": {
+        name: "trace-requirements",
+        description: "BMAD: Build traceability matrix (Spec→Story→Test→Code)",
+        source: "command",
+        get template() {
+          return PROMPT_BMAD_TRACE
+        },
+        hints: hints(PROMPT_BMAD_TRACE),
+      },
+
+      "bmad-init": {
+        name: "bmad-init",
+        description: "BMAD: Initialize project structure (docs/, tests/ directories)",
+        source: "command",
+        get template() {
+          return PROMPT_BMAD_INIT
+        },
+        hints: hints(PROMPT_BMAD_INIT),
       },
     }
 

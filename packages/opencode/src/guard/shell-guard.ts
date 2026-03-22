@@ -1,4 +1,5 @@
 import { Log } from "../util/log"
+import { GuardLog } from "./guard-log"
 
 export namespace ShellGuard {
   const log = Log.create({ service: "guard:shell" })
@@ -112,6 +113,7 @@ export namespace ShellGuard {
       if (pattern.test(trimmed)) {
         const reason = `Shell bypass detected: ${pattern.source}`
         log.warn("BLOCK", { command: trimmed, reason })
+        GuardLog.write({ guard: "shell", decision: "block", target: trimmed, reason })
         return { decision: "block", reason, command: trimmed }
       }
     }
@@ -126,6 +128,7 @@ export namespace ShellGuard {
     if (BLOCKLIST.has(binary)) {
       const reason = `Command '${binary}' is blocked in DevBunker`
       log.warn("BLOCK", { command: trimmed, binary, reason })
+      GuardLog.write({ guard: "shell", decision: "block", target: trimmed, reason })
       return { decision: "block", reason, command: trimmed }
     }
 
@@ -147,6 +150,7 @@ export namespace ShellGuard {
     if (CONFIRMLIST.has(binary)) {
       const reason = `Command '${binary}' requires confirmation`
       log.info("CONFIRM", { command: trimmed, binary })
+      GuardLog.write({ guard: "shell", decision: "confirm", target: trimmed, reason })
       return { decision: "confirm", reason, command: trimmed }
     }
 
@@ -171,6 +175,7 @@ export namespace ShellGuard {
       if (pattern.test(command)) {
         const reason = `Destructive git operation blocked: ${command}`
         log.warn("BLOCK", { command, reason })
+        GuardLog.write({ guard: "shell", decision: "block", target: command, reason })
         return { decision: "block", reason, command }
       }
     }

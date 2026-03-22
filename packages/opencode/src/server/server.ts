@@ -197,8 +197,8 @@ export namespace Server {
         )
         .use(async (c, next) => {
           if (c.req.path === "/log") return next()
-          const workspaceID = c.req.query("workspace") || c.req.header("x-opencode-workspace")
-          const raw = c.req.query("directory") || c.req.header("x-opencode-directory") || process.cwd()
+          const workspaceID = c.req.query("workspace") || c.req.header("x-devbunker-workspace")
+          const raw = c.req.query("directory") || c.req.header("x-devbunker-directory") || process.cwd()
           const directory = Filesystem.resolve(
             (() => {
               try {

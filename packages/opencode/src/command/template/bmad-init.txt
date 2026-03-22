@@ -1,0 +1,28 @@
+Initialize the BMAD project structure in the current workspace.
+
+## Instructions:
+1. Create the following directory structure:
+   ```
+   docs/
+   ├── specs/
+   ├── stories/
+   ├── architecture/
+   ├── test-plans/
+   ├── sprints/
+   └── retros/
+   tests/
+   ├── unit/
+   ├── integration/
+   └── acceptance/
+   ```
+
+2. Create a `docs/README.md` explaining the BMAD methodology briefly:
+   - Analyst writes specs and stories
+   - Architect designs the technical architecture
+   - QA writes tests from specs (TDD-first, no code access)
+   - Dev implements to pass tests (cannot modify tests)
+   - PO validates against acceptance criteria
+
+3. If $ARGUMENTS contains a project description, also create an initial spec in `docs/specs/`.
+
+Report what was created.

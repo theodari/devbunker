@@ -1,0 +1,42 @@
+Trace requirements through the full BMAD chain.
+
+## Target:
+$ARGUMENTS
+
+If no specific target is given, trace all stories.
+
+## Instructions:
+1. Read all stories in `docs/stories/`
+2. Read all test files in `tests/`
+3. Read all source files in `src/` and `lib/`
+4. Build the traceability matrix
+
+## Traceability chain:
+```
+Spec → Story → Acceptance Criterion → Test → Implementation
+```
+
+## Output file: `docs/traceability.md`
+
+Use this format:
+```markdown
+# Traceability Matrix
+
+Generated: <date>
+
+## <Story Name>
+| CA | Criterion | Test File | Test Name | Impl File | Status |
+|----|-----------|-----------|-----------|-----------|--------|
+| CA1 | ... | tests/... | it("CA1: ...") | src/... | ✓ / ✗ |
+
+### Gaps:
+- CA without tests: [list]
+- Tests without CA mapping: [list]
+- Orphan implementations: [list]
+```
+
+## Summary stats:
+- Total acceptance criteria: X
+- Criteria with tests: Y (Z%)
+- Criteria with passing tests: W
+- Untested criteria: [list]

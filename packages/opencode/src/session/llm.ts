@@ -13,6 +13,7 @@ import {
 } from "ai"
 import { mergeDeep, pipe } from "remeda"
 import { ProviderTransform } from "@/provider/transform"
+import { extractToolCallMiddleware } from "@/provider/tool-call-extract"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
 import type { Agent } from "@/agent/agent"
@@ -208,14 +209,14 @@ export namespace LLM {
       headers: {
         ...(input.model.providerID.startsWith("opencode")
           ? {
-              "x-opencode-project": Instance.project.id,
-              "x-opencode-session": input.sessionID,
-              "x-opencode-request": input.user.id,
-              "x-opencode-client": Flag.OPENCODE_CLIENT,
+              "x-devbunker-project": Instance.project.id,
+              "x-devbunker-session": input.sessionID,
+              "x-devbunker-request": input.user.id,
+              "x-devbunker-client": Flag.OPENCODE_CLIENT,
             }
           : input.model.providerID !== "anthropic"
             ? {
-                "User-Agent": `opencode/${Installation.VERSION}`,
+                "User-Agent": `devbunker/${Installation.VERSION}`,
               }
             : undefined),
         ...input.model.headers,
@@ -234,6 +235,7 @@ export namespace LLM {
       model: wrapLanguageModel({
         model: language,
         middleware: [
+          extractToolCallMiddleware(),
           {
             async transformParams(args) {
               if (args.type === "stream") {

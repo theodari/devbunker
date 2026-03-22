@@ -1,5 +1,6 @@
 import { Log } from "../util/log"
 import { Config } from "../config/config"
+import { GuardLog } from "./guard-log"
 
 export namespace GitGuard {
   const log = Log.create({ service: "guard:git" })
@@ -31,6 +32,7 @@ export namespace GitGuard {
     if (blockForce && isForceOp(trimmed)) {
       const reason = "Force push is blocked in DevBunker (git.blockForce=true)"
       log.warn("BLOCK", { command: trimmed, reason })
+      GuardLog.write({ guard: "git", decision: "block", target: trimmed, reason })
       return { allowed: false, reason }
     }
 
@@ -38,6 +40,7 @@ export namespace GitGuard {
     if (/git\s+config\s+--global/.test(trimmed)) {
       const reason = "Modifying global git config is blocked in DevBunker"
       log.warn("BLOCK", { command: trimmed, reason })
+      GuardLog.write({ guard: "git", decision: "block", target: trimmed, reason })
       return { allowed: false, reason }
     }
 
@@ -79,6 +82,7 @@ export namespace GitGuard {
 
     const reason = `Remote '${remoteName}' is not in the allowed remotes list. Allowed: ${allowedRemotes.join(", ")}`
     log.warn("BLOCK", { command, remote: remoteName, reason })
+    GuardLog.write({ guard: "git", decision: "block", target: command, reason })
     return { allowed: false, reason }
   }
 
@@ -102,6 +106,7 @@ export namespace GitGuard {
 
     const reason = `Remote URL '${url}' is not in the allowed remotes list`
     log.warn("BLOCK", { command, url, reason })
+    GuardLog.write({ guard: "git", decision: "block", target: command, reason })
     return { allowed: false, reason }
   }
 

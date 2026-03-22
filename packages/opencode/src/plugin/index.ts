@@ -7,19 +7,18 @@ import { Server } from "../server/server"
 import { BunProc } from "../bun"
 import { Instance } from "../project/instance"
 import { Flag } from "../flag/flag"
-import { CodexAuthPlugin } from "./codex"
 import { Session } from "../session"
 import { NamedError } from "@opencode-ai/util/error"
-import { CopilotAuthPlugin } from "./copilot"
-import { gitlabAuthPlugin as GitlabAuthPlugin } from "@gitlab/opencode-gitlab-auth"
+// DevBunker: Cloud auth plugins removed (Codex, Copilot, GitLab)
 
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
 
-  const BUILTIN = ["opencode-anthropic-auth@0.0.13"]
+  // DevBunker: No cloud auth plugins
+  const BUILTIN: string[] = []
 
-  // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, GitlabAuthPlugin]
+  // DevBunker: No internal cloud plugins
+  const INTERNAL_PLUGINS: PluginInstance[] = []
 
   const state = Instance.state(async () => {
     const client = createOpencodeClient({

@@ -403,6 +403,12 @@ export namespace Provider {
       if (provider.name) partial.name = provider.name
       if (provider.options) partial.options = provider.options
       mergeProvider(providerID, partial)
+
+      // DevBunker: Providers with a baseURL are local and don't need an API key.
+      // Ensure they are always connected.
+      if (!providers[providerID] && (provider.options?.baseURL || provider.api)) {
+        providers[providerID] = database[providerID]
+      }
     }
 
     for (const [providerID, provider] of Object.entries(providers)) {

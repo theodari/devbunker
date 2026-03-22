@@ -1,4 +1,5 @@
 import { Log } from "../util/log"
+import { GuardLog } from "./guard-log"
 
 export namespace SecretScan {
   const log = Log.create({ service: "guard:secret" })
@@ -74,6 +75,13 @@ export namespace SecretScan {
         types: [...new Set(findings.map((f) => f.type))],
         file: filename,
       })
+      GuardLog.write({
+        guard: "secret",
+        decision: "block",
+        target: filename || "unknown",
+        reason: `Found ${findings.length} potential secrets`,
+        details: { patterns: findings.map((f) => f.pattern) },
+      })
     }
 
     return findings
@@ -122,6 +130,13 @@ export namespace SecretScan {
       log.warn("secrets in diff", {
         count: findings.length,
         types: [...new Set(findings.map((f) => f.type))],
+      })
+      GuardLog.write({
+        guard: "secret",
+        decision: "block",
+        target: "git-diff",
+        reason: `Found ${findings.length} potential secrets in diff`,
+        details: { patterns: findings.map((f) => f.pattern) },
       })
     }
 

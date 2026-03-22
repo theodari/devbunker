@@ -299,26 +299,61 @@ export namespace SessionProcessor {
                     },
                     metadata: value.providerMetadata,
                   }
+                  // DevBunker: track <think> block filtering state for Qwen 3
+                  ;(currentText as any)._insideThink = false
+                  ;(currentText as any)._thinkBuffer = ""
                   await Session.updatePart(currentText)
                   break
 
                 case "text-delta":
                   if (currentText) {
-                    currentText.text += value.text
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
-                    await Session.updatePartDelta({
-                      sessionID: currentText.sessionID,
-                      messageID: currentText.messageID,
-                      partID: currentText.id,
-                      field: "text",
-                      delta: value.text,
-                    })
+                    // DevBunker: filter <think>...</think> blocks from streaming text (Qwen 3)
+                    let raw = value.text
+                    let visibleDelta = ""
+                    const ct = currentText as any
+                    for (const ch of raw) {
+                      if (ct._insideThink) {
+                        ct._thinkBuffer += ch
+                        if (ct._thinkBuffer.endsWith("</think>")) {
+                          ct._insideThink = false
+                          ct._thinkBuffer = ""
+                        }
+                      } else {
+                        ct._thinkBuffer += ch
+                        if (ct._thinkBuffer === "<think>".slice(0, ct._thinkBuffer.length)) {
+                          if (ct._thinkBuffer === "<think>") {
+                            ct._insideThink = true
+                            ct._thinkBuffer = ""
+                          }
+                        } else {
+                          visibleDelta += ct._thinkBuffer
+                          ct._thinkBuffer = ""
+                        }
+                      }
+                    }
+                    currentText.text += visibleDelta
+                    if (visibleDelta) {
+                      await Session.updatePartDelta({
+                        sessionID: currentText.sessionID,
+                        messageID: currentText.messageID,
+                        partID: currentText.id,
+                        field: "text",
+                        delta: visibleDelta,
+                      })
+                    }
                   }
                   break
 
                 case "text-end":
                   if (currentText) {
-                    currentText.text = currentText.text.trimEnd()
+                    // DevBunker: flush any remaining buffer and strip leftover think tags
+                    const ctEnd = currentText as any
+                    if (ctEnd._thinkBuffer) {
+                      currentText.text += ctEnd._thinkBuffer
+                      ctEnd._thinkBuffer = ""
+                    }
+                    currentText.text = currentText.text.replace(/<think>[\s\S]*?<\/think>\s*/g, "").trimEnd()
                     const textOutput = await Plugin.trigger(
                       "experimental.text.complete",
                       {

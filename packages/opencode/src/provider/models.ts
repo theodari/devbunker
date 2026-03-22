@@ -85,12 +85,10 @@ export namespace ModelsDev {
     return Flag.OPENCODE_MODELS_URL || "https://models.dev"
   }
 
-  // DevBunker: No cloud model registry fetch. Models come from local config only.
+  // DevBunker: No cloud model registry. Models come from local config only.
+  // Ignore any cached models.json from previous OpenCode installations.
   export const Data = lazy(async () => {
-    const result = await Filesystem.readJson(Flag.OPENCODE_MODELS_PATH ?? filepath).catch(() => {})
-    if (result) return result
-    // Return empty — models are defined in devbunker.json config
-    return {}
+    return {} as Record<string, Provider>
   })
 
   export async function get() {
