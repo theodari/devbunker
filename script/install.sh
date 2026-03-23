@@ -148,14 +148,14 @@ LLAMA_BASE="https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEA
 
 if [[ "$OS" == "linux" && "$ARCH" == "x64" ]]; then
   # CUDA build (Linux x64 only)
-  if [[ "$USE_CUDA" == "1" ]] && [[ ! -f "$INSTALL_DIR/llama-cuda/llama-server" ]]; then
+  if [[ "$USE_CUDA" == "1" ]] && ! find "$INSTALL_DIR/llama-cuda" -name "llama-server" -type f 2>/dev/null | grep -q .; then
     TMP=$(mktemp)
     download "$LLAMA_BASE/llama-$LLAMA_RELEASE-bin-ubuntu-x64.zip" "$TMP" "llama-server (Linux)"
     unzip -o -q "$TMP" -d "$INSTALL_DIR/llama-cuda"
     rm -f "$TMP"
-    chmod +x "$INSTALL_DIR/llama-cuda/llama-server" 2>/dev/null || true
+    find "$INSTALL_DIR/llama-cuda" -name "llama-server" -type f -exec chmod +x {} \; 2>/dev/null || true
     ok "llama-server installed"
-  elif [[ -f "$INSTALL_DIR/llama-cuda/llama-server" ]]; then
+  elif find "$INSTALL_DIR/llama-cuda" -name "llama-server" -type f 2>/dev/null | grep -q .; then
     ok "llama-server already installed"
   else
     # CPU-only fallback
@@ -163,17 +163,17 @@ if [[ "$OS" == "linux" && "$ARCH" == "x64" ]]; then
     download "$LLAMA_BASE/llama-$LLAMA_RELEASE-bin-ubuntu-x64.zip" "$TMP" "llama-server (CPU)"
     unzip -o -q "$TMP" -d "$INSTALL_DIR/llama"
     rm -f "$TMP"
-    chmod +x "$INSTALL_DIR/llama/llama-server" 2>/dev/null || true
+    find "$INSTALL_DIR/llama" -name "llama-server" -type f -exec chmod +x {} \; 2>/dev/null || true
     ok "llama-server (CPU) installed"
   fi
 elif [[ "$OS" == "darwin" ]]; then
   # macOS — use Metal (Apple Silicon) or CPU
-  if [[ ! -f "$INSTALL_DIR/llama/llama-server" ]]; then
+  if ! find "$INSTALL_DIR/llama" -name "llama-server" -type f 2>/dev/null | grep -q .; then
     TMP=$(mktemp)
     download "$LLAMA_BASE/llama-$LLAMA_RELEASE-bin-macos-${ARCH}.zip" "$TMP" "llama-server (macOS)"
     unzip -o -q "$TMP" -d "$INSTALL_DIR/llama"
     rm -f "$TMP"
-    chmod +x "$INSTALL_DIR/llama/llama-server" 2>/dev/null || true
+    find "$INSTALL_DIR/llama" -name "llama-server" -type f -exec chmod +x {} \; 2>/dev/null || true
     ok "llama-server (Metal) installed"
   else
     ok "llama-server already installed"
@@ -232,7 +232,7 @@ else
 
   if download "$DL_URL" "$TMP/$ARCHIVE" "DevBunker" 2>/dev/null; then
     tar -xzf "$TMP/$ARCHIVE" -C "$TMP" 2>/dev/null || true
-    BIN=$(find "$TMP" -name "devbunker" -o -name "opencode" | head -1)
+    BIN=$(find "$TMP" -name "devbunker" -type f | head -1)
     if [[ -n "$BIN" ]]; then
       cp "$BIN" "$EXE"
       chmod +x "$EXE"
@@ -244,7 +244,7 @@ else
   else
     warn "No release found. Build manually:"
     echo -e "     ${D}cd packages/opencode && bun run build -- --single${X}"
-    echo -e "     ${D}cp dist/devbunker-${OS}-${ARCH}/bin/opencode $EXE${X}"
+    echo -e "     ${D}cp dist/devbunker-${OS}-${ARCH}/bin/devbunker $EXE${X}"
   fi
 fi
 

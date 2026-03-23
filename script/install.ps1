@@ -13,7 +13,6 @@
 
 param(
     [string]$InstallDir = "$env:USERPROFILE\.devbunker",
-    [int]$GpuLayers = 18,
     [int]$CtxSize = 8192,
     [switch]$SkipModel,
     [switch]$CpuOnly
@@ -152,7 +151,7 @@ $cudaDir = "$InstallDir\llama-cuda"
 $vulkanDir = "$InstallDir\llama"
 
 # CUDA build
-if ($useCuda -and -not (Test-Path "$cudaDir\llama-server.exe")) {
+if ($useCuda -and -not (Test-Path "$cudaDir\llama-server.exe") -and -not (Test-Path "$cudaDir\cuda-bin\llama-server.exe")) {
     $tmp1 = "$env:TEMP\llama-cuda.zip"
     $tmp2 = "$env:TEMP\cudart.zip"
     Download-WithResume "https://github.com/ggml-org/llama.cpp/releases/download/$release/llama-$release-bin-win-cuda-12.4-x64.zip" $tmp1 "llama-server (CUDA)"
@@ -245,7 +244,7 @@ if (Test-Path $exe) {
     } catch {
         Write-Warn "No release found. Build manually:"
         Write-Host "     cd packages/opencode && bun run build -- --single" -ForegroundColor DarkGray
-        Write-Host "     cp dist\devbunker-windows-x64\bin\opencode.exe $exe" -ForegroundColor DarkGray
+        Write-Host "     cp dist\devbunker-windows-x64\bin\devbunker.exe $exe" -ForegroundColor DarkGray
     }
 }
 
@@ -264,7 +263,7 @@ if ((Test-Path $configFile) -or (Test-Path $legacyConfig)) {
 } else {
     New-Item -ItemType Directory -Path $configDir -Force | Out-Null
 
-    $modelId = $selectedModel.File -replace '\.gguf$', '' -replace '-', '-' | ForEach-Object { $_.ToLower() }
+    $modelId = ($selectedModel.File -replace '\.gguf$', '').ToLower()
     $modelName = $selectedModel.Name
 
     $config = @{
