@@ -15,6 +15,7 @@ import PROMPT_BMAD_QA_GATE from "./template/bmad-qa-gate.txt"
 import PROMPT_BMAD_VALIDATE_STORY from "./template/bmad-validate-story.txt"
 import PROMPT_BMAD_TRACE from "./template/bmad-trace.txt"
 import PROMPT_BMAD_INIT from "./template/bmad-init.txt"
+import PROMPT_TDD from "./template/tdd.txt"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
 
@@ -176,6 +177,16 @@ export namespace Command {
           return PROMPT_BMAD_INIT
         },
         hints: hints(PROMPT_BMAD_INIT),
+      },
+
+      tdd: {
+        name: "tdd",
+        description: "TDD-first: QA writes tests (RED) → you validate → Dev implements (GREEN)",
+        source: "command",
+        get template() {
+          return PROMPT_TDD
+        },
+        hints: hints(PROMPT_TDD),
       },
     }
 

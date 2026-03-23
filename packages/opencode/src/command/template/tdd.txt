@@ -1,0 +1,40 @@
+TDD-first workflow for: $ARGUMENTS
+
+Execute this 3-step TDD workflow IN ORDER. Each step is a separate action.
+
+## Step 1: RED — Generate tests from specs (QA role)
+
+You are the QA agent. You must NOT read source code files (src/, lib/).
+
+1. Read the feature description above
+2. If docs/stories/ exists, read relevant stories and acceptance criteria
+3. If docs/architecture/ exists, read design docs for context
+4. Write tests that cover the feature requirements
+5. Use Arrange/Act/Assert pattern
+6. Place tests in the appropriate test directory (tests/, test/, __tests__/)
+7. Detect the test framework from package.json or CMakeLists.txt (gtest, catch2, jest, vitest, etc.)
+8. Run the tests — they should ALL FAIL (RED phase)
+9. Report: "RED phase complete: X tests written, all failing"
+
+If you cannot find a test framework, ask the user which one to use.
+
+## Step 2: Pause for user validation
+
+After writing tests, STOP and tell the user:
+"Tests written. Review them and reply 'go' to proceed to implementation, or describe changes."
+
+Wait for user input before continuing.
+
+## Step 3: GREEN — Implement to pass tests (Dev role)
+
+Now you are the Dev agent. You CAN read source code.
+
+1. Run the failing tests to see what's expected
+2. Read the existing code to understand the codebase
+3. Implement the minimum code to make each test pass, one by one
+4. NEVER modify the test files
+5. Run tests after each change
+6. Report: "GREEN phase complete: X/Y tests passing"
+
+If all tests pass, report: "TDD complete. All tests GREEN."
+If some tests fail, explain what's blocking and ask the user for guidance.
