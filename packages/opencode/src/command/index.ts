@@ -16,8 +16,11 @@ import PROMPT_BMAD_VALIDATE_STORY from "./template/bmad-validate-story.txt"
 import PROMPT_BMAD_TRACE from "./template/bmad-trace.txt"
 import PROMPT_BMAD_INIT from "./template/bmad-init.txt"
 import PROMPT_TDD from "./template/tdd.txt"
+import PROMPT_DETECT_TOOLS from "./template/detect-tools.txt"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
+import { Global } from "../global"
+import path from "path"
 
 export namespace Command {
   export const Event = {
@@ -187,6 +190,17 @@ export namespace Command {
           return PROMPT_TDD
         },
         hints: hints(PROMPT_TDD),
+      },
+
+      "detect-tools": {
+        name: "detect-tools",
+        description: "Scan this machine for compilers, Qt, build tools, and save globally",
+        source: "command",
+        get template() {
+          const toolchainFile = path.join(Global.Path.home, ".devbunker", "toolchain.json")
+          return PROMPT_DETECT_TOOLS.replace("$TOOLCHAIN_FILE", toolchainFile)
+        },
+        hints: [],
       },
     }
 

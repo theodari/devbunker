@@ -1,0 +1,98 @@
+Detect development tools installed on this machine and save results.
+
+## Instructions
+
+Scan the system for development tools using `bash`. For each tool found, record the FULL PATH (with drive letter on Windows) and version.
+
+### Tools to detect:
+
+**Compilers & build systems:**
+- MSVC (look for vcvarsall.bat in "Program Files/Microsoft Visual Studio/")
+- GCC/G++ (where g++ / g++ --version)
+- Clang/Clang++ (where clang++ / clang++ --version)
+- CMake (where cmake / cmake --version)
+- Ninja (where ninja / ninja --version)
+- Make (where make / make --version)
+
+**Qt:**
+- Qt installation (look in C:\Qt\, D:\Qt\, ~/Qt/, /usr/lib/qt*)
+- qmake path and version
+- Qt version (e.g. 6.8.6)
+- Qt kit (msvc2022_64, mingw_64, gcc_64, etc.)
+
+**Languages & runtimes:**
+- Python (where python / python --version)
+- Node.js (where node / node --version)
+- Bun (where bun / bun --version)
+- Rust/Cargo (where cargo / cargo --version)
+- Go (where go / go version)
+- Java/JDK (where java / java --version)
+
+**Dev tools:**
+- Git (where git / git --version)
+- clang-format (where clang-format / clang-format --version)
+- clang-tidy (where clang-tidy)
+- cppcheck (where cppcheck)
+- Docker (where docker / docker --version)
+- pkg-config (where pkg-config)
+
+**Package managers:**
+- vcpkg (where vcpkg)
+- conan (where conan)
+- pip (where pip)
+- npm (where npm)
+- pnpm (where pnpm)
+- winget (where winget)
+- scoop (where scoop)
+- brew (where brew)
+
+### Output
+
+After detection, write the results to a file using the `write` tool:
+
+File path: $TOOLCHAIN_FILE
+Content format (JSON):
+```json
+{
+  "detected": "2026-03-23",
+  "platform": "win32",
+  "compilers": {
+    "msvc": { "path": "C:\\Program Files\\...", "version": "19.x", "vcvarsall": "C:\\..." },
+    "gcc": null,
+    "clang": { "path": "...", "version": "..." }
+  },
+  "build": {
+    "cmake": { "path": "...", "version": "..." },
+    "ninja": null,
+    "make": null
+  },
+  "qt": {
+    "path": "C:\\Qt\\6.8.6\\msvc2022_64",
+    "version": "6.8.6",
+    "kit": "msvc2022_64",
+    "qmake": "C:\\Qt\\6.8.6\\msvc2022_64\\bin\\qmake.exe"
+  },
+  "languages": {
+    "python": { "path": "...", "version": "..." },
+    "node": null,
+    "bun": { "path": "...", "version": "..." },
+    "rust": null,
+    "go": null
+  },
+  "tools": {
+    "git": { "path": "...", "version": "..." },
+    "clang-format": { "path": "...", "version": "..." },
+    "docker": null
+  },
+  "packages": {
+    "vcpkg": null,
+    "conan": null,
+    "pip": { "path": "..." },
+    "npm": null,
+    "pnpm": { "path": "...", "version": "..." }
+  }
+}
+```
+
+Use `null` for tools not found. Only include path and version for found tools.
+After writing, say: "Toolchain detected. X tools found."
