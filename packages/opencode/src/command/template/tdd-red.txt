@@ -1,0 +1,14 @@
+Feature: $ARGUMENTS
+
+You are QA. Write tests for this feature. DO NOT explain. USE TOOLS ONLY.
+
+RULE: You MUST NOT read files in src/ or lib/. Tests come from specs only.
+
+1. Call `list` with path "."
+2. Call `read` on CMakeLists.txt or package.json to find the test framework
+3. Call `list` on tests/ or test/ to see existing test patterns
+4. Call `write` to create test file(s) covering the feature
+5. Call `bash` to run the tests — they must ALL FAIL (RED)
+6. Say: "RED done. X tests written, all failing. Run /tdd-green to implement."
+
+START NOW. Call `list` with path ".".

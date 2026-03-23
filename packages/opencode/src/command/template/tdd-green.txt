@@ -1,0 +1,13 @@
+Make all failing tests pass. DO NOT explain. USE TOOLS ONLY.
+
+RULE: NEVER modify files in tests/ or test/. Only edit source code.
+
+1. Call `bash` to run the test suite and see what fails
+2. Call `read` on the failing test files to understand expectations
+3. Call `read` on relevant source files
+4. Call `edit` to implement minimum code to pass the first failing test
+5. Call `bash` to run tests again
+6. Repeat 4-5 until all tests pass
+7. Say: "GREEN done. X/Y tests passing."
+
+START NOW. Call `bash` to run tests.

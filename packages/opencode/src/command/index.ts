@@ -16,6 +16,8 @@ import PROMPT_BMAD_VALIDATE_STORY from "./template/bmad-validate-story.txt"
 import PROMPT_BMAD_TRACE from "./template/bmad-trace.txt"
 import PROMPT_BMAD_INIT from "./template/bmad-init.txt"
 import PROMPT_TDD from "./template/tdd.txt"
+import PROMPT_TDD_RED from "./template/tdd-red.txt"
+import PROMPT_TDD_GREEN from "./template/tdd-green.txt"
 import PROMPT_DETECT_TOOLS from "./template/detect-tools.txt"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
@@ -184,12 +186,32 @@ export namespace Command {
 
       tdd: {
         name: "tdd",
-        description: "TDD-first: QA writes tests (RED) → you validate → Dev implements (GREEN)",
+        description: "TDD-first full workflow (RED → validate → GREEN)",
         source: "command",
         get template() {
           return PROMPT_TDD
         },
         hints: hints(PROMPT_TDD),
+      },
+
+      "tdd-red": {
+        name: "tdd-red",
+        description: "TDD Step 1: Write tests from specs (RED phase — no source code access)",
+        source: "command",
+        get template() {
+          return PROMPT_TDD_RED
+        },
+        hints: hints(PROMPT_TDD_RED),
+      },
+
+      "tdd-green": {
+        name: "tdd-green",
+        description: "TDD Step 2: Implement code to pass failing tests (GREEN phase)",
+        source: "command",
+        get template() {
+          return PROMPT_TDD_GREEN
+        },
+        hints: hints(PROMPT_TDD_GREEN),
       },
 
       "detect-tools": {
