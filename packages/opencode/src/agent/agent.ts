@@ -13,6 +13,15 @@ import PROMPT_COMPACTION from "./prompt/compaction.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
+
+// DevBunker: BMAD agent prompts
+import PROMPT_BMAD_ANALYST from "./prompt/bmad-analyst.txt"
+import PROMPT_BMAD_ARCHITECT from "./prompt/bmad-architect.txt"
+import PROMPT_BMAD_QA from "./prompt/bmad-qa.txt"
+import PROMPT_BMAD_DEV from "./prompt/bmad-dev.txt"
+import PROMPT_BMAD_PO from "./prompt/bmad-po.txt"
+import PROMPT_BMAD_PM from "./prompt/bmad-pm.txt"
+import PROMPT_BMAD_SM from "./prompt/bmad-sm.txt"
 import { PermissionNext } from "@/permission/next"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@/global"
@@ -199,6 +208,223 @@ export namespace Agent {
           user,
         ),
         prompt: PROMPT_SUMMARY,
+      },
+
+      // ── DevBunker: BMAD Agents ──────────────────────────────────
+
+      "bmad-analyst": {
+        name: "bmad-analyst",
+        description: "BMAD Analyst — Elicits requirements, writes specs and user stories with testable acceptance criteria.",
+        mode: "primary",
+        native: true,
+        color: "#60a5fa", // blue
+        prompt: PROMPT_BMAD_ANALYST,
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            glob: "allow",
+            grep: "allow",
+            list: "allow",
+            edit: {
+              "*": "deny",
+              "docs/specs/*": "allow",
+              "docs/stories/*": "allow",
+            },
+            question: "allow",
+          }),
+          user,
+        ),
+      },
+
+      "bmad-architect": {
+        name: "bmad-architect",
+        description: "BMAD Architect — Designs technical architecture from specs with testability in mind.",
+        mode: "primary",
+        native: true,
+        color: "#a78bfa", // purple
+        prompt: PROMPT_BMAD_ARCHITECT,
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            glob: "allow",
+            grep: "allow",
+            list: "allow",
+            edit: {
+              "*": "deny",
+              "docs/*": "allow",
+            },
+            question: "allow",
+          }),
+          user,
+        ),
+      },
+
+      "bmad-qa": {
+        name: "bmad-qa",
+        description: "BMAD QA — Writes tests from specs WITHOUT seeing code. TDD-first enforcement.",
+        mode: "primary",
+        native: true,
+        color: "#f87171", // red
+        prompt: PROMPT_BMAD_QA,
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: {
+              "*": "allow",
+              "*/src/*": "deny",
+              "*/lib/*": "deny",
+            },
+            glob: {
+              "*": "allow",
+              "*/src/*": "deny",
+              "*/lib/*": "deny",
+            },
+            grep: {
+              "*": "allow",
+              "*/src/*": "deny",
+              "*/lib/*": "deny",
+            },
+            list: "allow",
+            edit: {
+              "*": "deny",
+              "tests/*": "allow",
+              "docs/test-plans/*": "allow",
+            },
+            bash: {
+              "*": "deny",
+              "npm test *": "allow",
+              "npm run test *": "allow",
+              "bun test *": "allow",
+              "npx vitest *": "allow",
+              "npx jest *": "allow",
+              "pytest *": "allow",
+              "cargo test *": "allow",
+              "go test *": "allow",
+            },
+            question: "allow",
+          }),
+          user,
+        ),
+      },
+
+      "bmad-dev": {
+        name: "bmad-dev",
+        description: "BMAD Dev — Implements code to make tests pass. CANNOT modify tests.",
+        mode: "primary",
+        native: true,
+        color: "#4ade80", // green
+        prompt: PROMPT_BMAD_DEV,
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            glob: "allow",
+            grep: "allow",
+            list: "allow",
+            edit: {
+              "*": "allow",
+              "tests/*": "deny",
+            },
+            bash: "allow",
+            question: "allow",
+          }),
+          user,
+        ),
+      },
+
+      "bmad-po": {
+        name: "bmad-po",
+        description: "BMAD Product Owner — Validates stories against acceptance criteria.",
+        mode: "primary",
+        native: true,
+        color: "#fbbf24", // amber
+        prompt: PROMPT_BMAD_PO,
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            glob: "allow",
+            grep: "allow",
+            list: "allow",
+            bash: {
+              "*": "deny",
+              "npm test *": "allow",
+              "npm run test *": "allow",
+              "bun test *": "allow",
+              "npx vitest *": "allow",
+              "npx jest *": "allow",
+              "pytest *": "allow",
+              "cargo test *": "allow",
+              "go test *": "allow",
+            },
+            question: "allow",
+          }),
+          user,
+        ),
+      },
+
+      "bmad-pm": {
+        name: "bmad-pm",
+        description: "BMAD Project Manager — Plans sprints and tracks progress.",
+        mode: "primary",
+        native: true,
+        color: "#38bdf8", // sky
+        prompt: PROMPT_BMAD_PM,
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            glob: "allow",
+            grep: "allow",
+            list: "allow",
+            edit: {
+              "*": "deny",
+              "docs/*": "allow",
+            },
+            question: "allow",
+          }),
+          user,
+        ),
+      },
+
+      "bmad-sm": {
+        name: "bmad-sm",
+        description: "BMAD Scrum Master — Facilitates process, identifies blockers, runs retrospectives.",
+        mode: "primary",
+        native: true,
+        color: "#fb923c", // orange
+        prompt: PROMPT_BMAD_SM,
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            glob: "allow",
+            grep: "allow",
+            list: "allow",
+            edit: {
+              "*": "deny",
+              "docs/*": "allow",
+            },
+            question: "allow",
+          }),
+          user,
+        ),
       },
     }
 
