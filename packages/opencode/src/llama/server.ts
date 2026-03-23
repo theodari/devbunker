@@ -41,10 +41,11 @@ function detectVramMb(): number {
 // ---------------------------------------------------------------------------
 
 // Approximate VRAM per layer (MB) by model size
+// overhead includes KV cache (ctx=8192) + compute buffers + safety margin
 const LAYER_SIZES: Record<string, { perLayer: number; overhead: number; totalLayers: number }> = {
-  "7b":  { perLayer: 70,  overhead: 500,  totalLayers: 32 },
-  "14b": { perLayer: 140, overhead: 800,  totalLayers: 48 },
-  "32b": { perLayer: 280, overhead: 1200, totalLayers: 64 },
+  "7b":  { perLayer: 90,  overhead: 1500, totalLayers: 32 },
+  "14b": { perLayer: 170, overhead: 2000, totalLayers: 48 },
+  "32b": { perLayer: 320, overhead: 2500, totalLayers: 64 },
 }
 
 function detectModelSize(modelPath: string): string {
