@@ -45,6 +45,24 @@ function Get-NvidiaGpu {
     return $null
 }
 
+function Get-VramMb {
+    try {
+        $out = & nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null
+        if ($LASTEXITCODE -eq 0 -and $out) {
+            $values = $out.Trim() -split "`n" | ForEach-Object { [int]$_.Trim() }
+            return ($values | Measure-Object -Maximum).Maximum
+        }
+    } catch {}
+    return 0
+}
+
+# Model catalog: VRAM threshold → best model
+$ModelCatalog = @(
+    @{ MinVram = 16000; Name = "Qwen2.5-Coder-32B-Instruct"; Quant = "Q4_K_M"; File = "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"; Size = "18 GB"; Url = "https://huggingface.co/bartowski/Qwen2.5-Coder-32B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf" },
+    @{ MinVram = 4000;  Name = "Qwen2.5-Coder-14B-Instruct"; Quant = "Q4_K_M"; File = "Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"; Size = "9 GB";  Url = "https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf" },
+    @{ MinVram = 0;     Name = "Qwen2.5-Coder-7B-Instruct";  Quant = "Q4_K_M"; File = "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf";  Size = "4.4 GB"; Url = "https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf" }
+)
+
 function Download-WithResume($url, $dest, $desc) {
     Write-Host "   Downloading $desc..." -NoNewline
     $ProgressPreference = 'SilentlyContinue'
@@ -89,20 +107,32 @@ foreach ($d in @("bin", "llama-cuda", "llama", "models")) {
 Write-Ok "Install dir: $InstallDir"
 
 # ---------------------------------------------------------------------------
-# 2. Detect GPU
+# 2. Detect GPU and VRAM
 # ---------------------------------------------------------------------------
 Write-Step "Detecting GPU"
 $nvidia = Get-NvidiaGpu
+$vramMb = Get-VramMb
 $useCuda = $false
 
 if ($CpuOnly) {
     Write-Warn "CPU-only mode (--CpuOnly)"
 } elseif ($nvidia) {
     Write-Ok "NVIDIA: $nvidia"
+    Write-Ok "VRAM: $vramMb MB"
     $useCuda = $true
 } else {
     Write-Warn "No NVIDIA GPU — will use Vulkan or CPU fallback"
 }
+
+# Select best model for available VRAM
+$selectedModel = $ModelCatalog[-1]  # default: smallest
+foreach ($m in $ModelCatalog) {
+    if ($vramMb -ge $m.MinVram) {
+        $selectedModel = $m
+        break
+    }
+}
+Write-Ok "Best model for your GPU: $($selectedModel.Name) ($($selectedModel.Quant), $($selectedModel.Size))"
 
 # ---------------------------------------------------------------------------
 # 3. Download llama-server
@@ -152,23 +182,21 @@ if (-not (Test-Path "$vulkanDir\llama-server.exe")) {
 if (-not $SkipModel) {
     Write-Step "Downloading AI model"
 
-    $modelFile = "$InstallDir\models\qwen2.5-coder-14b-instruct-q4_k_m.gguf"
+    $modelFile = "$InstallDir\models\$($selectedModel.File)"
 
     if (Test-Path $modelFile) {
         $gb = [math]::Round((Get-Item $modelFile).Length / 1GB, 2)
-        Write-Ok "Model already downloaded (${gb} GB)"
+        Write-Ok "Model already downloaded: $($selectedModel.Name) (${gb} GB)"
     } else {
-        Write-Host "   Model: Qwen2.5-Coder-14B-Instruct (Q4_K_M, ~9 GB)" -ForegroundColor DarkGray
+        Write-Host "   Model: $($selectedModel.Name) ($($selectedModel.Quant), ~$($selectedModel.Size))" -ForegroundColor DarkGray
         Write-Host "   Source: huggingface.co/bartowski" -ForegroundColor DarkGray
-        Write-Host "   This is a one-time download. It can be resumed if interrupted." -ForegroundColor DarkGray
+        Write-Host "   One-time download, resumable if interrupted." -ForegroundColor DarkGray
         Write-Host ""
 
-        $url = "https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
-
         if (Test-Cmd "curl.exe") {
-            & curl.exe -L -o $modelFile --retry 3 -C - $url
+            & curl.exe -L -o $modelFile --retry 3 -C - $selectedModel.Url
         } else {
-            Download-WithResume $url $modelFile "Qwen2.5-Coder-14B"
+            Download-WithResume $selectedModel.Url $modelFile $selectedModel.Name
         }
 
         if (Test-Path $modelFile) {
@@ -236,29 +264,28 @@ if ((Test-Path $configFile) -or (Test-Path $legacyConfig)) {
 } else {
     New-Item -ItemType Directory -Path $configDir -Force | Out-Null
 
-    $json = @'
-{
-  "model": "llama/qwen2.5-coder-14b-instruct-q4_k_m",
-  "provider": {
-    "llama": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "llama.cpp (Local)",
-      "options": {
-        "baseURL": "http://localhost:8081/v1"
-      },
-      "models": {
-        "qwen2.5-coder-14b-instruct-q4_k_m": {
-          "name": "Qwen 2.5 Coder 14B",
-          "reasoning": false,
-          "temperature": true,
-          "tool_call": true
+    $modelId = $selectedModel.File -replace '\.gguf$', '' -replace '-', '-' | ForEach-Object { $_.ToLower() }
+    $modelName = $selectedModel.Name
+
+    $config = @{
+        model = "llama/$modelId"
+        provider = @{
+            llama = @{
+                npm = "@ai-sdk/openai-compatible"
+                name = "llama.cpp (Local)"
+                options = @{ baseURL = "http://localhost:8081/v1" }
+                models = @{
+                    $modelId = @{
+                        name = $modelName
+                        reasoning = $false
+                        temperature = $true
+                        tool_call = $true
+                    }
+                }
+            }
         }
-      }
     }
-  }
-}
-'@
-    Set-Content $configFile $json -Encoding UTF8
+    $config | ConvertTo-Json -Depth 5 | Set-Content $configFile -Encoding UTF8
     Write-Ok "Config created: $configFile"
 }
 

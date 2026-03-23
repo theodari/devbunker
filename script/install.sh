@@ -94,18 +94,46 @@ ok "Install dir: $INSTALL_DIR"
 step "Detecting GPU"
 USE_CUDA=0
 NVIDIA_GPU=""
+VRAM_MB=0
 
 if [[ "$CPU_ONLY" == "1" ]]; then
   warn "CPU-only mode (CPU_ONLY=1)"
 elif has_cmd nvidia-smi; then
   NVIDIA_GPU="$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || true)"
+  VRAM_MB="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ' || echo 0)"
   if [[ -n "$NVIDIA_GPU" ]]; then
     ok "NVIDIA: $NVIDIA_GPU"
+    ok "VRAM: ${VRAM_MB} MB"
     USE_CUDA=1
   fi
+elif [[ "$OS" == "darwin" ]]; then
+  # macOS Metal — estimate from system memory (Metal shares unified memory)
+  VRAM_MB=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1048576 / 2 ))
+  ok "Apple Metal (estimated ${VRAM_MB} MB shared)"
 else
-  warn "No NVIDIA GPU — will use CPU (CUDA/Vulkan not available on this platform yet)"
+  warn "No NVIDIA GPU — will use CPU"
 fi
+
+# Select best model for available VRAM
+# Catalog: min_vram|name|file|size|url
+MODEL_32B="Qwen2.5-Coder-32B-Instruct|Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf|18 GB|https://huggingface.co/bartowski/Qwen2.5-Coder-32B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"
+MODEL_14B="Qwen2.5-Coder-14B-Instruct|Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf|9 GB|https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
+MODEL_7B="Qwen2.5-Coder-7B-Instruct|Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf|4.4 GB|https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
+
+if [[ "$VRAM_MB" -ge 16000 ]]; then
+  SELECTED_MODEL="$MODEL_32B"
+elif [[ "$VRAM_MB" -ge 4000 ]]; then
+  SELECTED_MODEL="$MODEL_14B"
+else
+  SELECTED_MODEL="$MODEL_7B"
+fi
+
+MODEL_NAME="$(echo "$SELECTED_MODEL" | cut -d'|' -f1)"
+MODEL_FILE="$(echo "$SELECTED_MODEL" | cut -d'|' -f2)"
+MODEL_SIZE="$(echo "$SELECTED_MODEL" | cut -d'|' -f3)"
+MODEL_URL="$(echo "$SELECTED_MODEL" | cut -d'|' -f4)"
+
+ok "Best model: $MODEL_NAME (Q4_K_M, ~$MODEL_SIZE)"
 
 # ---------------------------------------------------------------------------
 # 3. Download llama-server
@@ -160,27 +188,25 @@ fi
 if [[ "$SKIP_MODEL" != "1" ]]; then
   step "Downloading AI model"
 
-  MODEL_FILE="$INSTALL_DIR/models/qwen2.5-coder-14b-instruct-q4_k_m.gguf"
+  MODEL_PATH="$INSTALL_DIR/models/$MODEL_FILE"
 
-  if [[ -f "$MODEL_FILE" ]]; then
-    SIZE=$(du -h "$MODEL_FILE" | cut -f1)
-    ok "Model already downloaded ($SIZE)"
+  if [[ -f "$MODEL_PATH" ]]; then
+    SIZE=$(du -h "$MODEL_PATH" | cut -f1)
+    ok "Model already downloaded: $MODEL_NAME ($SIZE)"
   else
-    echo -e "   ${D}Model: Qwen2.5-Coder-14B-Instruct (Q4_K_M, ~9 GB)${X}"
+    echo -e "   ${D}Model: $MODEL_NAME (Q4_K_M, ~$MODEL_SIZE)${X}"
     echo -e "   ${D}Source: huggingface.co/bartowski${X}"
     echo -e "   ${D}One-time download, resumable if interrupted.${X}"
     echo ""
 
-    MODEL_URL="https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
-
     if has_cmd curl; then
-      curl -L --retry 3 -C - -o "$MODEL_FILE" "$MODEL_URL"
+      curl -L --retry 3 -C - -o "$MODEL_PATH" "$MODEL_URL"
     else
-      download "$MODEL_URL" "$MODEL_FILE" "Qwen2.5-Coder-14B"
+      download "$MODEL_URL" "$MODEL_PATH" "$MODEL_NAME"
     fi
 
-    if [[ -f "$MODEL_FILE" ]]; then
-      SIZE=$(du -h "$MODEL_FILE" | cut -f1)
+    if [[ -f "$MODEL_PATH" ]]; then
+      SIZE=$(du -h "$MODEL_PATH" | cut -f1)
       ok "Model downloaded ($SIZE)"
     else
       err "Download failed. Run installer again to resume."
@@ -235,9 +261,10 @@ if [[ -f "$CONFIG_FILE" ]] || [[ -f "$LEGACY" ]]; then
   ok "Config already exists"
 else
   mkdir -p "$CONFIG_DIR"
-  cat > "$CONFIG_FILE" << 'CONF'
+  MODEL_ID="$(echo "$MODEL_FILE" | sed 's/\.gguf$//' | tr '[:upper:]' '[:lower:]')"
+  cat > "$CONFIG_FILE" << CONF
 {
-  "model": "llama/qwen2.5-coder-14b-instruct-q4_k_m",
+  "model": "llama/$MODEL_ID",
   "provider": {
     "llama": {
       "npm": "@ai-sdk/openai-compatible",
@@ -246,8 +273,8 @@ else
         "baseURL": "http://localhost:8081/v1"
       },
       "models": {
-        "qwen2.5-coder-14b-instruct-q4_k_m": {
-          "name": "Qwen 2.5 Coder 14B",
+        "$MODEL_ID": {
+          "name": "$MODEL_NAME",
           "reasoning": false,
           "temperature": true,
           "tool_call": true

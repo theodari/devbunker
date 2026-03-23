@@ -1,5 +1,5 @@
-import { spawn, type ChildProcess } from "child_process"
-import { existsSync } from "fs"
+import { spawn, execSync, type ChildProcess } from "child_process"
+import { existsSync, readdirSync, statSync } from "fs"
 import path from "path"
 import os from "os"
 import { Log } from "@/util/log"
@@ -11,13 +11,75 @@ const DEVBUNKER_DIR = path.join(os.homedir(), ".devbunker")
 
 const DEFAULTS = {
   port: 8081,
-  gpuLayers: 18,
   ctxSize: 8192,
   threads: 8,
 }
 
 let child: ChildProcess | undefined
 let managedByUs = false
+
+// ---------------------------------------------------------------------------
+// VRAM detection
+// ---------------------------------------------------------------------------
+
+function detectVramMb(): number {
+  try {
+    const out = execSync("nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits", {
+      timeout: 5000,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).toString().trim()
+    // Take the first GPU (largest if multiple)
+    const values = out.split("\n").map((l) => parseInt(l.trim(), 10)).filter((n) => !isNaN(n))
+    return values.length > 0 ? Math.max(...values) : 0
+  } catch {
+    return 0
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto GPU layers: estimate how many layers fit in VRAM
+// ---------------------------------------------------------------------------
+
+// Approximate VRAM per layer (MB) by model size
+const LAYER_SIZES: Record<string, { perLayer: number; overhead: number; totalLayers: number }> = {
+  "7b":  { perLayer: 70,  overhead: 500,  totalLayers: 32 },
+  "14b": { perLayer: 140, overhead: 800,  totalLayers: 48 },
+  "32b": { perLayer: 280, overhead: 1200, totalLayers: 64 },
+}
+
+function detectModelSize(modelPath: string): string {
+  const name = path.basename(modelPath).toLowerCase()
+  if (name.includes("32b")) return "32b"
+  if (name.includes("14b")) return "14b"
+  if (name.includes("7b")) return "7b"
+  // Guess from file size
+  try {
+    const sizeMb = statSync(modelPath).size / (1024 * 1024)
+    if (sizeMb > 15000) return "32b"
+    if (sizeMb > 6000) return "14b"
+    return "7b"
+  } catch {
+    return "14b"
+  }
+}
+
+function autoGpuLayers(vramMb: number, modelPath: string): number {
+  if (vramMb <= 0) return 0
+
+  const size = detectModelSize(modelPath)
+  const info = LAYER_SIZES[size] ?? LAYER_SIZES["14b"]
+
+  // Reserve VRAM for KV cache and OS
+  const available = vramMb - info.overhead
+  if (available <= 0) return 0
+
+  const layers = Math.min(Math.floor(available / info.perLayer), info.totalLayers)
+  return layers
+}
+
+// ---------------------------------------------------------------------------
+// Binary resolution
+// ---------------------------------------------------------------------------
 
 function findBinary(...candidates: string[]): string | undefined {
   for (const c of candidates) {
@@ -45,8 +107,13 @@ function defaultVulkanBinary(): string | undefined {
 function defaultModelPath(): string | undefined {
   const modelsDir = path.join(DEVBUNKER_DIR, "models")
   if (!existsSync(modelsDir)) return undefined
-  const { readdirSync } = require("fs")
-  const files = (readdirSync(modelsDir) as string[]).filter((f: string) => f.endsWith(".gguf"))
+  const files = readdirSync(modelsDir).filter((f) => f.endsWith(".gguf"))
+  // Prefer largest model (best quality)
+  files.sort((a, b) => {
+    try {
+      return statSync(path.join(modelsDir, b)).size - statSync(path.join(modelsDir, a)).size
+    } catch { return 0 }
+  })
   return files.length > 0 ? path.join(modelsDir, files[0]) : undefined
 }
 
@@ -57,12 +124,16 @@ function resolveBinary(config: any): { binary: string; mode: string } | undefine
   const vulkanPath = config?.llama?.vulkanBinary ?? defaultVulkanBinary()
   if (vulkanPath && existsSync(vulkanPath)) return { binary: vulkanPath, mode: "Vulkan" }
 
-  // CPU fallback: use whichever binary exists, with 0 gpu layers
+  // CPU fallback
   if (cudaPath && existsSync(cudaPath)) return { binary: cudaPath, mode: "CPU" }
   if (vulkanPath && existsSync(vulkanPath)) return { binary: vulkanPath, mode: "CPU" }
 
   return undefined
 }
+
+// ---------------------------------------------------------------------------
+// Server lifecycle
+// ---------------------------------------------------------------------------
 
 async function isAlreadyRunning(port: number): Promise<boolean> {
   try {
@@ -73,13 +144,11 @@ async function isAlreadyRunning(port: number): Promise<boolean> {
       const data = await response.json()
       return data?.object === "list" || Array.isArray(data?.data)
     }
-  } catch {
-    // not running
-  }
+  } catch {}
   return false
 }
 
-async function waitForReady(port: number, timeoutMs = 60000): Promise<boolean> {
+async function waitForReady(port: number, timeoutMs = 90000): Promise<boolean> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     if (await isAlreadyRunning(port)) return true
@@ -89,10 +158,8 @@ async function waitForReady(port: number, timeoutMs = 60000): Promise<boolean> {
 }
 
 function shouldAutoLaunch(cfg: any): boolean {
-  // Explicit config
   if (cfg?.llama?.enabled === true) return true
   if (cfg?.llama?.enabled === false) return false
-  // Auto-detect: if there's a provider with baseURL pointing to localhost:8081
   const providers = cfg?.provider ?? {}
   for (const [, p] of Object.entries(providers) as [string, any][]) {
     const url = p?.options?.baseURL ?? ""
@@ -129,9 +196,15 @@ export namespace LlamaServer {
       return
     }
 
-    const gpuLayers = resolved.mode === "CPU" ? 0 : (cfg?.llama?.gpuLayers ?? DEFAULTS.gpuLayers)
+    // Auto-detect VRAM and compute optimal GPU layers
+    const vramMb = detectVramMb()
+    const autoLayers = autoGpuLayers(vramMb, modelPath)
+    const gpuLayers = resolved.mode === "CPU" ? 0 : (cfg?.llama?.gpuLayers ?? autoLayers)
     const ctxSize = cfg?.llama?.ctxSize ?? DEFAULTS.ctxSize
     const threads = cfg?.llama?.threads ?? DEFAULTS.threads
+    const modelSize = detectModelSize(modelPath)
+
+    log.info("GPU detection", { vramMb, modelSize, autoLayers, gpuLayers: gpuLayers })
 
     const args = [
       "--model", modelPath,
@@ -142,11 +215,17 @@ export namespace LlamaServer {
       "--threads", String(threads),
     ]
 
-    if (resolved.mode !== "CPU") {
+    if (resolved.mode !== "CPU" && gpuLayers > 0) {
       args.push("--flash-attn", "on")
     }
 
-    log.info("starting llama-server", { mode: resolved.mode, port, gpuLayers, model: path.basename(modelPath) })
+    log.info("starting llama-server", {
+      mode: resolved.mode,
+      port,
+      gpuLayers,
+      model: path.basename(modelPath),
+      vramMb,
+    })
 
     child = spawn(resolved.binary, args, {
       stdio: ["ignore", "pipe", "pipe"],
@@ -173,7 +252,7 @@ export namespace LlamaServer {
 
     const ready = await waitForReady(port)
     if (ready) {
-      log.info("llama-server ready", { mode: resolved.mode, port })
+      log.info("llama-server ready", { mode: resolved.mode, port, gpuLayers })
     } else {
       log.warn("llama-server did not become ready within timeout")
     }
@@ -185,7 +264,6 @@ export namespace LlamaServer {
     log.info("stopping llama-server")
     try {
       child.kill()
-      // Wait up to 5s for graceful exit
       await Promise.race([
         new Promise<void>((resolve) => child?.on("exit", resolve)),
         new Promise<void>((resolve) => setTimeout(resolve, 5000)),
@@ -193,9 +271,7 @@ export namespace LlamaServer {
       if (child && !child.killed) {
         child.kill("SIGKILL")
       }
-    } catch {
-      // already dead
-    }
+    } catch {}
     child = undefined
     managedByUs = false
   }
