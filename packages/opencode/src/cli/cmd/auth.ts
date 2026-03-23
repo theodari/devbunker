@@ -328,13 +328,8 @@ export const AuthLoginCommand = cmd({
         })
 
         const priority: Record<string, number> = {
-          opencode: 0,
-          anthropic: 1,
-          "github-copilot": 2,
-          openai: 3,
-          google: 4,
-          openrouter: 5,
-          vercel: 6,
+          llama: 0,
+          ollama: 1,
         }
         const pluginProviders = resolvePluginProviders({
           hooks: await Plugin.list(),
@@ -355,9 +350,8 @@ export const AuthLoginCommand = cmd({
               label: x.name,
               value: x.id,
               hint: {
-                opencode: "recommended",
-                anthropic: "Claude Max or API key",
-                openai: "ChatGPT Plus/Pro or API key",
+                llama: "local (llama.cpp)",
+                ollama: "local (Ollama)",
               }[x.id],
             })),
           ),

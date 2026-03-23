@@ -15,12 +15,8 @@ import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
-  opencode: 0,
-  "opencode-go": 1,
-  openai: 2,
-  "github-copilot": 3,
-  anthropic: 4,
-  google: 5,
+  llama: 0,
+  ollama: 1,
 }
 
 export function createDialogProviderOptions() {
@@ -35,10 +31,8 @@ export function createDialogProviderOptions() {
         title: provider.name,
         value: provider.id,
         description: {
-          opencode: "(Recommended)",
-          anthropic: "(Claude Max or API key)",
-          openai: "(ChatGPT Plus/Pro or API key)",
-          "opencode-go": "Low cost subscription for everyone",
+          llama: "(Local — llama.cpp)",
+          ollama: "(Local — Ollama)",
         }[provider.id],
         category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Other",
         async onSelect() {
@@ -216,22 +210,7 @@ function ApiMethod(props: ApiMethodProps) {
       title={props.title}
       placeholder="API key"
       description={
-        {
-          opencode: (
-            <box gap={1}>
-              <text fg={theme.textMuted}>
-                DevBunker is designed for local models via Ollama. Cloud providers are disabled in air-gapped mode.
-              </text>
-            </box>
-          ),
-          "opencode-go": (
-            <box gap={1}>
-              <text fg={theme.textMuted}>
-                DevBunker is designed for local models via Ollama. Cloud providers are disabled in air-gapped mode.
-              </text>
-            </box>
-          ),
-        }[props.providerID] ?? undefined
+        undefined
       }
       onConfirm={async (value) => {
         if (!value) return
