@@ -19,14 +19,27 @@ const DEFAULTS = {
 let child: ChildProcess | undefined
 let managedByUs = false
 
-function defaultCudaBinary(): string {
-  const ext = process.platform === "win32" ? ".exe" : ""
-  return path.join(DEVBUNKER_DIR, "llama-cuda", "cuda-bin", `llama-server${ext}`)
+function findBinary(...candidates: string[]): string | undefined {
+  for (const c of candidates) {
+    if (existsSync(c)) return c
+  }
+  return undefined
 }
 
-function defaultVulkanBinary(): string {
+function defaultCudaBinary(): string | undefined {
   const ext = process.platform === "win32" ? ".exe" : ""
-  return path.join(DEVBUNKER_DIR, "llama", `llama-server${ext}`)
+  return findBinary(
+    path.join(DEVBUNKER_DIR, "llama-cuda", "cuda-bin", `llama-server${ext}`),
+    path.join(DEVBUNKER_DIR, "llama-cuda", `llama-server${ext}`),
+  )
+}
+
+function defaultVulkanBinary(): string | undefined {
+  const ext = process.platform === "win32" ? ".exe" : ""
+  return findBinary(
+    path.join(DEVBUNKER_DIR, "llama", `llama-server${ext}`),
+    path.join(DEVBUNKER_DIR, "llama-vulkan", `llama-server${ext}`),
+  )
 }
 
 function defaultModelPath(): string | undefined {
@@ -39,14 +52,14 @@ function defaultModelPath(): string | undefined {
 
 function resolveBinary(config: any): { binary: string; mode: string } | undefined {
   const cudaPath = config?.llama?.cudaBinary ?? defaultCudaBinary()
-  if (existsSync(cudaPath)) return { binary: cudaPath, mode: "CUDA" }
+  if (cudaPath && existsSync(cudaPath)) return { binary: cudaPath, mode: "CUDA" }
 
   const vulkanPath = config?.llama?.vulkanBinary ?? defaultVulkanBinary()
-  if (existsSync(vulkanPath)) return { binary: vulkanPath, mode: "Vulkan" }
+  if (vulkanPath && existsSync(vulkanPath)) return { binary: vulkanPath, mode: "Vulkan" }
 
   // CPU fallback: use whichever binary exists, with 0 gpu layers
-  if (existsSync(cudaPath)) return { binary: cudaPath, mode: "CPU" }
-  if (existsSync(vulkanPath)) return { binary: vulkanPath, mode: "CPU" }
+  if (cudaPath && existsSync(cudaPath)) return { binary: cudaPath, mode: "CPU" }
+  if (vulkanPath && existsSync(vulkanPath)) return { binary: vulkanPath, mode: "CPU" }
 
   return undefined
 }
