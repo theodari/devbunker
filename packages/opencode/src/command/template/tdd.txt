@@ -1,40 +1,23 @@
-TDD-first workflow for: $ARGUMENTS
+Feature: $ARGUMENTS
 
-Execute this 3-step TDD workflow IN ORDER. Each step is a separate action.
+DO NOT explain. DO NOT write code in your response. USE TOOLS ONLY.
 
-## Step 1: RED — Generate tests from specs (QA role)
+Step 1 — RED: Write tests (you MUST NOT read src/ files)
+1. Call `list` with path "." to see project structure
+2. Call `read` on CMakeLists.txt or package.json to find the test framework
+3. Call `glob` to find existing test files for patterns
+4. Call `write` to create test files in tests/ or test/
+5. Call `bash` to run the tests — they must ALL FAIL
+6. Say: "RED done. X tests, all failing. Reply 'go' to implement."
+7. STOP. Wait for user.
 
-You are the QA agent. You must NOT read source code files (src/, lib/).
+Step 2 — GREEN: Implement (after user says 'go')
+1. Call `bash` to run failing tests
+2. Call `read` on the failing tests to understand expectations
+3. Call `read` on source files to understand the codebase
+4. Call `edit` or `write` to implement — minimum code to pass tests
+5. Call `bash` to run tests after each change
+6. NEVER modify test files
+7. Say: "GREEN done. X/Y tests passing."
 
-1. Read the feature description above
-2. If docs/stories/ exists, read relevant stories and acceptance criteria
-3. If docs/architecture/ exists, read design docs for context
-4. Write tests that cover the feature requirements
-5. Use Arrange/Act/Assert pattern
-6. Place tests in the appropriate test directory (tests/, test/, __tests__/)
-7. Detect the test framework from package.json or CMakeLists.txt (gtest, catch2, jest, vitest, etc.)
-8. Run the tests — they should ALL FAIL (RED phase)
-9. Report: "RED phase complete: X tests written, all failing"
-
-If you cannot find a test framework, ask the user which one to use.
-
-## Step 2: Pause for user validation
-
-After writing tests, STOP and tell the user:
-"Tests written. Review them and reply 'go' to proceed to implementation, or describe changes."
-
-Wait for user input before continuing.
-
-## Step 3: GREEN — Implement to pass tests (Dev role)
-
-Now you are the Dev agent. You CAN read source code.
-
-1. Run the failing tests to see what's expected
-2. Read the existing code to understand the codebase
-3. Implement the minimum code to make each test pass, one by one
-4. NEVER modify the test files
-5. Run tests after each change
-6. Report: "GREEN phase complete: X/Y tests passing"
-
-If all tests pass, report: "TDD complete. All tests GREEN."
-If some tests fail, explain what's blocking and ask the user for guidance.
+START NOW with Step 1. Call `list` with path ".".
